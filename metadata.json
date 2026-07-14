@@ -1,0 +1,6 @@
+{
+  "name": "N-Tube",
+  "description": "A dark, high-performance video streaming platform featuring YouTube videos and Shorts in an elegant black and red theme.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
