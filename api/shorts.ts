@@ -58,10 +58,10 @@ export default async function handler(req: any, res: any) {
     if (!r.ok) {
       const txt = await r.text();
       console.error('YouTube shorts search error', r.status, txt);
-      return res.status(502).json({
+      return res.status(200).json({
         items: MOCK_SHORTS,
         nextPageToken: null,
-        warning: 'YouTube Shorts API request failed. Showing fallback shorts.'
+        warning: `YouTube Shorts API request failed (${r.status}). Showing fallback shorts.`
       });
     }
 
