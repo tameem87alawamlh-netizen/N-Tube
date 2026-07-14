@@ -15,7 +15,14 @@ const PORT = 3000;
 
 app.use(express.json());
 
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || 'AIzaSyBx0QrKlRHM_6xFHkHRGNebAQJE9s9-kKg';
+// IMPORTANT: Do NOT commit your API key to source control. Set `YOUTUBE_API_KEY` in the
+// deployment environment (process.env) or the server will fall back to scraping/mocks.
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+
+if (!YOUTUBE_API_KEY) {
+  console.warn('Warning: YOUTUBE_API_KEY is not set. YouTube Data API requests will be disabled or may fail.');
+  console.warn('Set the environment variable YOUTUBE_API_KEY in your deployment and ensure the key is not referrer-restricted to localhost.');
+}
 
 // High quality real YouTube videos to use as fallbacks or default items
 const MOCK_VIDEOS = [
@@ -498,6 +505,10 @@ const MOCK_COMMENTS: Record<string, any[]> = {
 
 // YouTube Data API Helper Functions
 async function fetchFromYouTube(endpoint: string, params: Record<string, string>) {
+  if (!YOUTUBE_API_KEY) {
+    throw new Error('YOUTUBE_API_KEY not configured');
+  }
+
   const urlParams = new URLSearchParams({
     key: YOUTUBE_API_KEY,
     ...params
@@ -509,7 +520,10 @@ async function fetchFromYouTube(endpoint: string, params: Record<string, string>
     if (!res.ok) {
       const errText = await res.text();
       console.error(`YouTube API Error: ${res.status}`, errText);
-      throw new Error(`YouTube API returned status ${res.status}`);
+      if (res.status === 403 || res.status === 400) {
+        console.error('The API key may be invalid or restricted. Check the Google Cloud Console API key restrictions (HTTP referrers / IP addresses).');
+      }
+      throw new Error(`YouTube API returned status ${res.status}: ${errText}`);
     }
     return await res.json();
   } catch (error) {
