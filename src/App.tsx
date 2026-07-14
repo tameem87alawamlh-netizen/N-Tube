@@ -72,6 +72,19 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const normalizeApiPayload = (data: any): { items: Video[]; warning?: string } => {
+    if (Array.isArray(data)) {
+      return { items: data, warning: undefined };
+    }
+    if (data && typeof data === 'object') {
+      return {
+        items: Array.isArray(data.items) ? data.items : [],
+        warning: typeof data.warning === 'string' ? data.warning : undefined
+      };
+    }
+    return { items: [], warning: undefined };
+  };
+
   // active state in Shorts theater
   const [activeShortIndex, setActiveShortIndex] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(true);
@@ -167,14 +180,18 @@ export default function App() {
         if (videosRes.ok && shortsRes.ok) {
           const videosData = await videosRes.json();
           const shortsData = await shortsRes.json();
-          setVideos(videosData);
-          if (Array.isArray(shortsData)) {
-            setShorts(shortsData);
-          } else if (shortsData && Array.isArray(shortsData.items)) {
-            setShorts(shortsData.items);
-            if (shortsData.nextPageToken) {
-              setShortsNextPageToken(shortsData.nextPageToken);
-            }
+          const { items: videoItems, warning: videosWarning } = normalizeApiPayload(videosData);
+          const { items: shortItems, warning: shortsWarning } = normalizeApiPayload(shortsData);
+          setVideos(videoItems);
+          if (shortsWarning) {
+            showToast(shortsWarning);
+          }
+          if (videosWarning) {
+            showToast(videosWarning);
+          }
+          setShorts(shortItems);
+          if (shortsData && typeof shortsData === 'object' && shortsData.nextPageToken) {
+            setShortsNextPageToken(shortsData.nextPageToken);
           }
         }
       } catch (err) {
@@ -217,7 +234,9 @@ export default function App() {
         const res = await fetch(url);
         if (res.ok) {
           const videosData = await res.json();
-          setVideos(videosData);
+          const { items: videoItems, warning } = normalizeApiPayload(videosData);
+          if (warning) showToast(warning);
+          setVideos(videoItems);
         }
       } catch (err) {
         console.error('Error fetching category videos:', err);
@@ -259,13 +278,15 @@ export default function App() {
       const res = await fetch(`/api/search?q=${encodeURIComponent(query + ' ' + randomVar)}`);
       if (res.ok) {
         const moreVideos = await res.json();
-        if (Array.isArray(moreVideos) && moreVideos.length > 0) {
+        const { items: moreVideoItems, warning } = normalizeApiPayload(moreVideos);
+        if (warning) showToast(warning);
+        if (moreVideoItems.length > 0) {
           setVideos(prev => {
             const existingIds = new Set(prev.map(v => v.id));
-            const uniqueNew = moreVideos.filter(v => !existingIds.has(v.id));
+            const uniqueNew = moreVideoItems.filter(v => !existingIds.has(v.id));
             return [...prev, ...uniqueNew];
           });
-          showToast(`Retrieved ${moreVideos.length} additional videos!`);
+          showToast(`Retrieved ${moreVideoItems.length} additional videos!`);
         } else {
           showToast('No extra videos found right now.');
         }
@@ -286,11 +307,11 @@ export default function App() {
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        let newItems: Video[] = [];
-        if (Array.isArray(data)) {
-          newItems = data;
-        } else if (data && Array.isArray(data.items)) {
-          newItems = data.items;
+        const { items: newItems, warning } = normalizeApiPayload(data);
+        if (warning) showToast(warning);
+        if (Array.isArray(data) && !data.nextPageToken) {
+          setShortsNextPageToken(null);
+        } else if (data && typeof data === 'object' && data.nextPageToken) {
           setShortsNextPageToken(data.nextPageToken || null);
         }
         
@@ -325,11 +346,13 @@ export default function App() {
       const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&isShort=${currentTab === 'shorts'}`);
       if (res.ok) {
         const searchResults = await res.json();
+        const { items: parsedResults, warning } = normalizeApiPayload(searchResults);
+        if (warning) showToast(warning);
         if (currentTab === 'shorts') {
-          setShorts(searchResults);
+          setShorts(parsedResults);
           setActiveShortIndex(0);
         } else {
-          setVideos(searchResults);
+          setVideos(parsedResults);
           setCurrentTab('home'); // Switch back to Home tab to show search results
           setSelectedVideo(null); // Close active video player to reveal grid
         }
@@ -671,7 +694,20 @@ export default function App() {
                 {searchQuery && (
                   <button 
                     type="button" 
-                    onClick={() => { setSearchQuery(''); fetch('/api/videos').then(res => res.json()).then(data => setVideos(data)); }}
+                    onClick={async () => {
+                      setSearchQuery('');
+                      try {
+                        const res = await fetch('/api/videos');
+                        if (res.ok) {
+                          const data = await res.json();
+                          const { items, warning } = normalizeApiPayload(data);
+                          if (warning) showToast(warning);
+                          setVideos(items);
+                        }
+                      } catch (error) {
+                        console.error('Failed to reset search results:', error);
+                      }
+                    }}
                     className="absolute right-3 top-2.5 text-white/40 hover:text-white"
                   >
                     <X size={16} />

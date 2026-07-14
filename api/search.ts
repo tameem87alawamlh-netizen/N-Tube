@@ -105,7 +105,10 @@ export default async function handler(req: any, res: any) {
       const list = (isShort ? MOCK_SHORTS : MOCK_VIDEOS).filter(v =>
         v.title.toLowerCase().includes(q.toLowerCase()) || v.description.toLowerCase().includes(q.toLowerCase()) || v.channelTitle.toLowerCase().includes(q.toLowerCase())
       );
-      return res.status(200).json(list.length ? list : (isShort ? MOCK_SHORTS : MOCK_VIDEOS));
+      return res.status(200).json({
+        items: list.length ? list : (isShort ? MOCK_SHORTS : MOCK_VIDEOS),
+        warning: 'YouTube Data API search returned no items. Showing fallback search results.'
+      });
     }
 
     // Optionally fetch details for videos to get duration/stats
@@ -142,9 +145,12 @@ export default async function handler(req: any, res: any) {
       };
     });
 
-    return res.status(200).json(results);
+    return res.status(200).json({ items: results });
   } catch (err: any) {
     console.error('search handler error', err);
-    return res.status(500).json(isShort ? MOCK_SHORTS : MOCK_VIDEOS);
+    return res.status(500).json({
+      items: isShort ? MOCK_SHORTS : MOCK_VIDEOS,
+      warning: `search handler error: ${err?.message || String(err)}`
+    });
   }
 }

@@ -45,7 +45,11 @@ export default async function handler(req: any, res: any) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   const q = typeof req.query?.q === 'string' ? req.query.q : '';
 
-  if (!apiKey) return res.status(200).json({ items: MOCK_SHORTS, nextPageToken: null });
+  if (!apiKey) return res.status(200).json({
+    items: MOCK_SHORTS,
+    nextPageToken: null,
+    warning: 'YOUTUBE_API_KEY is not configured in the deployed environment. Showing fallback shorts.'
+  });
 
   try {
     const params = new URLSearchParams({ part: 'snippet', maxResults: '15', q: q || 'shorts viral', type: 'video', videoDuration: 'short', key: apiKey });
@@ -54,7 +58,11 @@ export default async function handler(req: any, res: any) {
     if (!r.ok) {
       const txt = await r.text();
       console.error('YouTube shorts search error', r.status, txt);
-      return res.status(502).json({ items: MOCK_SHORTS, nextPageToken: null });
+      return res.status(502).json({
+        items: MOCK_SHORTS,
+        nextPageToken: null,
+        warning: 'YouTube Shorts API request failed. Showing fallback shorts.'
+      });
     }
 
     const data = await r.json();
@@ -76,9 +84,16 @@ export default async function handler(req: any, res: any) {
       };
     });
 
-    return res.status(200).json({ items: items.length ? items : MOCK_SHORTS, nextPageToken: data.nextPageToken || null });
+    return res.status(200).json({
+      items: items.length ? items : MOCK_SHORTS,
+      nextPageToken: data.nextPageToken || null
+    });
   } catch (err: any) {
     console.error('shorts handler error', err);
-    return res.status(500).json({ items: MOCK_SHORTS, nextPageToken: null });
+    return res.status(500).json({
+      items: MOCK_SHORTS,
+      nextPageToken: null,
+      warning: `shorts handler error: ${err?.message || String(err)}`
+    });
   }
 }

@@ -47,7 +47,10 @@ export default async function handler(req: any, res: any) {
   const apiKey = process.env.YOUTUBE_API_KEY;
 
   if (!apiKey) {
-    return res.status(200).json(MOCK_VIDEOS);
+    return res.status(200).json({
+      items: MOCK_VIDEOS,
+      warning: 'YOUTUBE_API_KEY is not configured in the deployed environment. Showing fallback videos.'
+    });
   }
 
   try {
@@ -122,9 +125,19 @@ export default async function handler(req: any, res: any) {
       };
     });
 
-    return res.status(200).json(results.length ? results : MOCK_VIDEOS);
+    if (!results.length) {
+      return res.status(200).json({
+        items: MOCK_VIDEOS,
+        warning: 'YouTube Data API returned no search results. Showing fallback videos.'
+      });
+    }
+
+    return res.status(200).json({ items: results });
   } catch (err: any) {
     console.error('videos handler error', err);
-    return res.status(500).json(MOCK_VIDEOS);
+    return res.status(500).json({
+      items: MOCK_VIDEOS,
+      warning: `videos handler error: ${err?.message || String(err)}`
+    });
   }
 }
