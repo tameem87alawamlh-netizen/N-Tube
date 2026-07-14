@@ -12,6 +12,20 @@ function getBestThumbnail(thumbnails: any): string {
   return thumbnails.maxres?.url || thumbnails.high?.url || thumbnails.medium?.url || thumbnails.default?.url || '';
 }
 
+function formatDuration(iso: string): string {
+  if (!iso) return '0:00';
+  if (iso === 'LIVE') return 'LIVE';
+  const m = String(iso).match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return iso;
+  const hours = m[1] ? parseInt(m[1], 10) : 0;
+  const minutes = m[2] ? parseInt(m[2], 10) : 0;
+  const seconds = m[3] ? parseInt(m[3], 10) : 0;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
 const MOCK_VIDEOS = [
   {
     id: 'jfKfPfyJRdk',
@@ -89,7 +103,8 @@ export default async function handler(req: any, res: any) {
       const vid = it.id.videoId || it.id;
       const snippet = it.snippet || {};
       const det: any = detailMap.get(vid) || {};
-      const duration = det?.contentDetails?.duration || snippet?.lengthText?.simpleText || '10:00';
+      const rawDuration = det?.contentDetails?.duration || snippet?.lengthText?.simpleText || '';
+      const duration = det?.contentDetails?.duration ? formatDuration(det.contentDetails.duration) : (snippet?.lengthText?.simpleText || '10:00');
       const viewsRaw = det?.statistics?.viewCount || snippet?.viewCount || '0';
 
       return {
