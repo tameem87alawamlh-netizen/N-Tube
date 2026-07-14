@@ -37,25 +37,41 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const params = new URLSearchParams({
-      part: 'snippet',
-      maxResults: '18',
-      q,
-      type: 'video',
-      videoEmbeddable: 'true',
-      key: apiKey
-    });
+    const trySearch = async (query: string, extraParams: Record<string,string> = {}) => {
+      const params = new URLSearchParams({
+        part: 'snippet',
+        maxResults: '18',
+        q: query,
+        type: 'video',
+        key: apiKey,
+        ...extraParams
+      } as Record<string,string>);
+      const url = `https://www.googleapis.com/youtube/v3/search?${params.toString()}`;
+      const r = await fetch(url);
+      if (!r.ok) {
+        const txt = await r.text();
+        console.error('YouTube search error', r.status, txt);
+        return null;
+      }
+      const data = await r.json();
+      return data.items || [];
+    };
 
-    const url = `https://www.googleapis.com/youtube/v3/search?${params.toString()}`;
-    const r = await fetch(url);
-    if (!r.ok) {
-      const txt = await r.text();
-      console.error('YouTube search error', r.status, txt);
-      return res.status(502).json(MOCK_VIDEOS);
+    // primary
+    let items = await trySearch(q, { videoEmbeddable: 'true' }) || [];
+
+    // If no results, broaden the query with helpful suffixes
+    const fallbacks = ['trending', 'highlights', 'official', 'best', 'compilation', '2026'];
+    for (const fb of fallbacks) {
+      if (items && items.length > 0) break;
+      items = await trySearch(`${q} ${fb}`) || [];
     }
 
-    const data = await r.json();
-    const items = data.items || [];
+    // If still empty, try without embeddable restriction
+    if ((!items || items.length === 0)) {
+      items = await trySearch(q) || [];
+    }
+
     const videoIds = items.map((it: any) => it.id && (it.id.videoId || it.id)).filter(Boolean);
 
     // Fetch details for durations and stats
